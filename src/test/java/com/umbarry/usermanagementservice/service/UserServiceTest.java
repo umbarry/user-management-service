@@ -1,8 +1,10 @@
 package com.umbarry.usermanagementservice.service;
 
+import com.umbarry.usermanagementservice.config.RabbitMQConfig;
 import com.umbarry.usermanagementservice.dto.UpdateStatusRequest;
 import com.umbarry.usermanagementservice.dto.UserRequest;
 import com.umbarry.usermanagementservice.dto.UserResponse;
+import com.umbarry.usermanagementservice.events.UserCreatedEvent;
 import com.umbarry.usermanagementservice.exception.ResourceAlreadyExistsException;
 import com.umbarry.usermanagementservice.exception.ResourceNotFoundException;
 import com.umbarry.usermanagementservice.enumeration.Role;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +36,9 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RabbitTemplate rabbitTemplate;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -105,6 +111,8 @@ class UserServiceTest {
         assertNotNull(result);
         assertEquals("testuser", result.getUsername());
         verify(userRepository).save(any(User.class));
+
+        verify(rabbitTemplate, times(1)).convertAndSend(eq(RabbitMQConfig.USER_EXCHANGE), eq(RabbitMQConfig.USER_CREATED_ROUTING_KEY), any(UserCreatedEvent.class));
     }
 
     @Test
