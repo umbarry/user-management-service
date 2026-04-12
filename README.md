@@ -5,7 +5,8 @@ Enterprise-grade backend service for managing users and their roles within the U
 ## Features
 
 *   **User Management**: CRUD operations for users.
-*   **Role Management**: Support for multiple roles per user (OWNER, OPERATOR, MAINTAINER, DEVELOPER, REPORTER).
+*   **Keycloak Integration**: Automatic user provisioning in Keycloak for authentication.
+*   **RBAC Authorization**: Fine-grained access control using roles retrieved from the application database.
 *   **Event-Driven Architecture**: Asynchronous welcome email notification using RabbitMQ.
 *   **Idempotent Processing**: Ensures emails are sent exactly once using a dedicated Notifications table.
 *   **Database Migrations**: Managed via Flyway.
@@ -14,10 +15,11 @@ Enterprise-grade backend service for managing users and their roles within the U
 ## Technologies Used
 
 *   **Java**: 17
-*   **Spring Boot**: 3.2.x
+*   **Spring Boot**: 4.0.3
 *   **Spring Data JPA**: For database access.
 *   **PostgreSQL**: Primary persistent storage.
 *   **RabbitMQ**: Message broker for asynchronous events.
+*   **Keycloak**: Identity and Access Management (IAM).
 *   **Flyway**: Database schema versioning.
 *   **Lombok**: To reduce boilerplate code.
 *   **MailHog**: For SMTP testing and email visualization.
@@ -34,42 +36,74 @@ Enterprise-grade backend service for managing users and their roles within the U
 1.  Clone the repository:
     ```bash
     git clone https://github.com/umbarry/user-management-service.git
-    cd user-management-service
     ```
-
-2.  Start the infrastructure and application:
+    
+2. Navigate to the project directory
     ```bash
-    docker-compose up -d --build
+    cd user-management-service
+    ```   
+
+3. Start the infrastructure and application:
+    ```bash
+    cd scripts && sh run.sh
     ```
 
-The service will be available at `http://localhost:8080`.
+The service will be available at `http://localhost:8080`. Keycloak is automatically configured with the `umbarry` realm and required client.
+
+### Default Admin User
+An initial administrator user is automatically created in both the database (via Flyway) and Keycloak:
+*   **Email**: `admin@example.com`
+*   **Password**: `admin`
+*   **Role**: `OWNER`
+
+## Authentication & Authorization
+
+### User Creation Flow
+1.  An administrator (role `OWNER`) creates a user via `POST /v1/users`.
+2.  The service automatically creates the user in **Keycloak** (using their email as username).
+3.  A random 8-character temporary password is generated.
+4.  The user receives an email containing his password.
+5.  On first login, the user will be prompted to change their temporary password.
+
+### Email Testing
+
+All emails (including passwords) are captured by **MailHog**.
+View them at: `http://localhost:8025`
+
+### Obtaining a JWT Token
+To interact with the API, you must obtain a token from Keycloak:
+
+```bash
+curl --location 'http://localhost:8081/realms/umbarry/protocol/openid-connect/token' \
+--header 'Content-Type: application/x-www-form-urlencoded' \
+--data-urlencode 'client_id=umbarry-app' \
+--data-urlencode 'username=admin@example.com' \
+--data-urlencode 'password=admin' \
+--data-urlencode 'grant_type=password'
+```
+
+### Roles and Permissions
+Authorization is managed by the application database. The following roles are supported:
+
+| Role | Permissions |
+| :--- | :--- |
+| **OWNER** | Full access: Create, Read, Update, Delete users. |
+| **MAINTAINER** | Can update users and change user status. Cannot create or delete. |
+| **OPERATOR** | Read-only access to user lists and details. |
+| **REPORTER** | Read-only access to user lists and details. |
+| **DEVELOPER** | Authenticated access only (no specific permissions assigned yet). |
 
 ## API Documentation
 
 *   **Swagger UI**: `http://localhost:8080/swagger-ui.html`
 *   **OpenAPI Spec**: [openapi.yml](src/main/resources/openapi.yml)
 
-### Pagination Headers
+## Running tests and generate coverage report
 
-List endpoints return a JSON array in the body and pagination metadata in headers:
-*   `X-Total-Count`: Total number of records.
-*   `X-Total-Pages`: Total number of pages.
-*   `X-Page-Number`: Current page index (0-based).
-*   `X-Page-Size`: Requested page size.
-
-## Email Testing
-
-All emails sent by the service are captured by **MailHog**.
-You can view them at: `http://localhost:8025`
-
-## Development
-
-### Database Schema
-The database schema is managed by Flyway. Migrations are located in `src/main/resources/db/migration`.
-
-### Messaging
-When a user is created, a `UserCreatedEvent` is published to the `user-exchange` with the routing key `user.created`.
-A consumer listens on `user-created-queue` to send a welcome email.
-
-### Idempotency logic
-The `UserEventConsumer` checks the `notifications` table for a record with `user_id` and `type = 'WELCOME_EMAIL'` before sending. This prevents duplicate emails if a message is retried by RabbitMQ.
+1.  Build and run the tests using docker:
+    ```bash
+    cd scripts
+    sh tests.sh
+    ```
+After runnning the tests, a **coverage report** will be available at: ./jacoco-report/index.html
+(generated using **jacoco**)

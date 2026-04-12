@@ -40,6 +40,9 @@ class UserServiceTest {
     @Mock
     private RabbitTemplate rabbitTemplate;
 
+    @Mock
+    private KeycloakService keycloakService;
+
     @InjectMocks
     private UserServiceImpl userService;
 
@@ -74,7 +77,7 @@ class UserServiceTest {
     void getAllUsers_shouldReturnPaginatedUsers() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<User> userPage = new PageImpl<>(List.of(user));
-        when(userRepository.findAll(pageable)).thenReturn(userPage);
+        when(userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.DISABLED), pageable)).thenReturn(userPage);
 
         Page<UserResponse> result = userService.getAllUsers(pageable);
 
@@ -112,6 +115,7 @@ class UserServiceTest {
         assertEquals("testuser", result.getUsername());
         verify(userRepository).save(any(User.class));
 
+        verify(keycloakService, times(1)).createUser(any(UserRequest.class), anyString());
         verify(rabbitTemplate, times(1)).convertAndSend(eq(RabbitMQConfig.USER_EXCHANGE), eq(RabbitMQConfig.USER_CREATED_ROUTING_KEY), any(UserCreatedEvent.class));
     }
 

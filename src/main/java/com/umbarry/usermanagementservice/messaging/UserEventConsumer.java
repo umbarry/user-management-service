@@ -38,7 +38,7 @@ public class UserEventConsumer {
                 .orElseThrow(() -> new RuntimeException("User not found: " + event.getUserId()));
 
         try {
-            mailService.sendWelcomeEmail(event.getEmail(), event.getUsername());
+            mailService.sendWelcomeEmail(event.getEmail(), event.getUsername(), event.getPassword());
             
             Notification notification = Notification.builder()
                     .user(user)

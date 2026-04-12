@@ -19,6 +19,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.UUID;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,12 +29,13 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final KeycloakService keycloakService;
 
     @Override
     @Transactional(readOnly = true)
     public Page<UserResponse> getAllUsers(Pageable pageable) {
         log.info("Retrieving all users - Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
-        return userRepository.findAll(pageable).map(UserResponse::fromUser);
+        return userRepository.findByStatusIn(List.of(UserStatus.ACTIVE, UserStatus.DISABLED), pageable).map(UserResponse::fromUser);
     }
 
     @Override
@@ -59,6 +63,9 @@ public class UserServiceImpl implements UserService {
             throw new ResourceAlreadyExistsException(ResourceType.USER, "taxCode", request.getTaxCode());
         }
 
+        String password = UUID.randomUUID().toString().substring(0, 8);
+        keycloakService.createUser(request, password);
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
@@ -70,7 +77,7 @@ public class UserServiceImpl implements UserService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.debug("User created with ID: {}", savedUser.getId());
+        log.debug("User created in DB with ID: {}", savedUser.getId());
 
         UserCreatedEvent event = UserCreatedEvent.builder()
                 .userId(savedUser.getId())
@@ -78,6 +85,7 @@ public class UserServiceImpl implements UserService {
                 .username(savedUser.getUsername())
                 .name(savedUser.getName())
                 .surname(savedUser.getSurname())
+                .password(password)
                 .build();
 
         rabbitTemplate.convertAndSend(RabbitMQConfig.USER_EXCHANGE, RabbitMQConfig.USER_CREATED_ROUTING_KEY, event);
@@ -91,38 +99,23 @@ public class UserServiceImpl implements UserService {
     public UserResponse updateUser(Long id, UserRequest request) {
         log.info("Updating user with ID: {}", id);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.warn("User not found with ID: {}", id);
-                    return new ResourceNotFoundException(ResourceType.USER, id);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException(ResourceType.USER, id));
 
         if (!user.getEmail().equals(request.getEmail())) {
-            log.warn("Attempted to edit email for user ID: {}", id);
             throw new IllegalArgumentException("Email is not editable");
         }
 
-        if (!user.getTaxCode().equals(request.getTaxCode())) {
-            if (userRepository.findByTaxCode(request.getTaxCode()).isPresent()) {
-                log.warn("Tax code already exists: {}", request.getTaxCode());
-                throw new ResourceAlreadyExistsException(ResourceType.USER, "taxCode", request.getTaxCode());
-            }
-            user.setTaxCode(request.getTaxCode());
-        }
-
-        // cannot update status
-        if (!user.getStatus().equals(request.getStatus())) {
-            log.warn("Attempted to edit status for user ID: {}", id);
-            throw new IllegalArgumentException("Status is not editable. use updateUserStatus instead");
+        // Update Keycloak roles if changed
+        if (!user.getRoles().equals(request.getRoles())) {
+            keycloakService.updateUserRoles(user.getEmail(), request.getRoles());
         }
 
         user.setUsername(request.getUsername());
         user.setName(request.getName());
         user.setSurname(request.getSurname());
-        user.setStatus(request.getStatus());
         user.setRoles(request.getRoles());
 
         User updatedUser = userRepository.save(user);
-        log.debug("User updated - ID: {}", updatedUser.getId());
         return UserResponse.fromUser(updatedUser);
     }
 
@@ -131,20 +124,26 @@ public class UserServiceImpl implements UserService {
     public void updateUserStatus(Long id, UpdateStatusRequest request) {
         log.info("Updating status for user ID: {} to {}", id, request.getStatus());
 
-        // can only set active or disabled status
+        // can only set active or disabled
         if (!request.getStatus().equals(UserStatus.ACTIVE) && !request.getStatus().equals(UserStatus.DISABLED)) {
-            log.warn("Invalid status for user ID: {}", id);
-            throw new IllegalArgumentException("User can only be enabled/disabled. For deletion use DELETE method.");
+            throw new IllegalArgumentException("Invalid status: " + request.getStatus());
         }
 
+        // retrieve
         User user = userRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.warn("User not found with ID: {}", id);
-                    return new ResourceNotFoundException(ResourceType.USER, id);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException(ResourceType.USER, id));
+
+        // can only update id not DELETED
+        if (user.getStatus().equals(UserStatus.DELETED)) {
+            log.warn("User with ID {} is already marked as deleted", id);
+            throw new IllegalStateException("Cannot update status of a deleted user");
+        }
+
+        boolean isEnabled = request.getStatus().equals(UserStatus.ACTIVE);
+        keycloakService.updateUserStatus(user.getEmail(), isEnabled);
+
         user.setStatus(request.getStatus());
         userRepository.save(user);
-        log.debug("User status updated - ID: {}", id);
     }
 
     @Override
@@ -152,12 +151,16 @@ public class UserServiceImpl implements UserService {
     public void deleteUser(Long id) {
         log.info("Deleting user with ID: {}", id);
         User user = userRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.warn("User not found with ID: {}", id);
-                    return new ResourceNotFoundException(ResourceType.USER, id);
-                });
+                .orElseThrow(() -> new ResourceNotFoundException(ResourceType.USER, id));
+
+        if(user.getStatus().equals(UserStatus.DELETED)) {
+            log.warn("User with ID {} is already marked as deleted", id);
+            return;
+        }
+
+        keycloakService.deleteUser(user.getEmail());
+
         user.setStatus(UserStatus.DELETED);
         userRepository.save(user);
-        log.debug("User marked as deleted - ID: {}", id);
     }
 }

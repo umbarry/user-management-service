@@ -14,11 +14,13 @@ public class MailServiceImpl implements MailService {
     private final JavaMailSender mailSender;
 
     @Override
-    public void sendWelcomeEmail(String to, String username) {
+    public void sendWelcomeEmail(String to, String username, String password) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
         message.setSubject("Welcome to User Management Service!");
-        message.setText("Hello " + username + ",\n\nWelcome to our platform! Your account has been successfully created.");
+        message.setText("Hello " + username + ",\n\n" +
+                "Welcome to our platform! Your account has been successfully created.\n\n" +
+                "Your password is: " + password + ".");
         mailSender.send(message);
     }
 }

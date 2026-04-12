@@ -12,6 +12,8 @@ info:
 servers:
   - url: http://localhost:8080
     description: Generated server url
+security:
+  - bearer-jwt: []
 paths:
   /v1/users/{id}:
     get:
@@ -242,3 +244,9 @@ components:
           type: array
           items:
             type: string
+  securitySchemes:
+    bearer-jwt:
+      type: http
+      description: JWT authentication token from Keycloak
+      scheme: bearer
+      bearerFormat: JWT

@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,6 +24,7 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('OWNER', 'OPERATOR', 'REPORTER')")
     public ResponseEntity<List<UserResponse>> getAllUsers(Pageable pageable) {
         Page<UserResponse> page = userService.getAllUsers(pageable);
         HttpHeaders headers = new HttpHeaders();
@@ -34,27 +36,32 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER', 'OPERATOR', 'REPORTER')")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER', 'MAINTAINER')")
     public ResponseEntity<UserResponse> updateUser(@PathVariable Long id, @Valid @RequestBody UserRequest request) {
         return ResponseEntity.ok(userService.updateUser(id, request));
     }
 
     @PutMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('OWNER', 'MAINTAINER')")
     public ResponseEntity<Void> updateUserStatus(@PathVariable Long id, @RequestBody UpdateStatusRequest request) {
         userService.updateUserStatus(id, request);
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('OWNER')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();

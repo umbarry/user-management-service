@@ -1,0 +1,41 @@
+{
+  "realm": "umbarry",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "OWNER" },
+      { "name": "OPERATOR" },
+      { "name": "MAINTAINER" },
+      { "name": "DEVELOPER" },
+      { "name": "REPORTER" }
+    ]
+  },
+  "users": [
+    {
+      "username": "admin@umbarry.dev",
+      "email": "admin@umbarry.dev",
+      "firstName": "Admin",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [ "OWNER" ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "umbarry-app",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "webOrigins": ["*"],
+      "protocol": "openid-connect"
+    }
+  ]
+}
