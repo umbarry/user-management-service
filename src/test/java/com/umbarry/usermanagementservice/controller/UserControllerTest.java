@@ -67,24 +67,22 @@ class UserControllerTest {
         userRepository.deleteAll();
     }
 
-    private JwtRequestPostProcessor ownerJwt() {
+    private JwtRequestPostProcessor roleJwt(String role) {
         return jwt()
-                .authorities(new SimpleGrantedAuthority("ROLE_OWNER"))
+                .authorities(new SimpleGrantedAuthority("ROLE_" + role))
                 .jwt(j -> j
-                        .claim("realm_access", Map.of("roles", List.of("OWNER")))
-                        .claim("email", "owner@test.com")
-                        .claim("sub", "test-subject")
+                        .claim("realm_access", Map.of("roles", List.of(role)))
+                        .claim("email", role.toLowerCase() + "@test.com")
+                        .claim("sub", "test-subject-" + role)
                 );
     }
 
+    private JwtRequestPostProcessor ownerJwt() {
+        return roleJwt("OWNER");
+    }
+
     private JwtRequestPostProcessor developerJwt() {
-        return jwt()
-                .authorities(new SimpleGrantedAuthority("ROLE_DEVELOPER"))
-                .jwt(j -> j
-                        .claim("realm_access", Map.of("roles", List.of("DEVELOPER")))
-                        .claim("email", "developer@test.com")
-                        .claim("sub", "dev-subject")
-                );
+        return roleJwt("DEVELOPER");
     }
 
     @Test
@@ -263,5 +261,83 @@ class UserControllerTest {
     void noToken_shouldReturn401() throws Exception {
         mockMvc.perform(get("/v1/users/1"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void reporterView_shouldOnlySeeAllowedFields() throws Exception {
+        User testUser = userRepository.save(User.builder()
+                .username("testvisibility")
+                .email("visibility@example.com")
+                .taxCode("VISTES88A01H501U")
+                .name("Visibility")
+                .surname("Test")
+                .status(UserStatus.ACTIVE)
+                .roles(Set.of(Role.OPERATOR))
+                .build());
+
+        mockMvc.perform(get("/v1/users/" + testUser.getId())
+                        .with(roleJwt("REPORTER")))
+                .andExpect(status().isOk())
+                // Visible fields
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.username").value("testvisibility"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.createdAt").exists())
+                .andExpect(jsonPath("$.updatedAt").exists())
+                // Hidden fields
+                .andExpect(jsonPath("$.email").doesNotExist())
+                .andExpect(jsonPath("$.taxCode").doesNotExist())
+                .andExpect(jsonPath("$.name").doesNotExist())
+                .andExpect(jsonPath("$.surname").doesNotExist())
+                .andExpect(jsonPath("$.roles").doesNotExist());
+    }
+
+    @Test
+    void operatorView_shouldSeeEverythingExceptRoles() throws Exception {
+        User testUser = userRepository.save(User.builder()
+                .username("testvisibility")
+                .email("visibility@example.com")
+                .taxCode("VISTES88A01H501U")
+                .name("Visibility")
+                .surname("Test")
+                .status(UserStatus.ACTIVE)
+                .roles(Set.of(Role.OPERATOR))
+                .build());
+
+        mockMvc.perform(get("/v1/users/" + testUser.getId())
+                        .with(roleJwt("OPERATOR")))
+                .andExpect(status().isOk())
+                // Visible fields
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.username").value("testvisibility"))
+                .andExpect(jsonPath("$.email").value("visibility@example.com"))
+                .andExpect(jsonPath("$.taxCode").value("VISTES88A01H501U"))
+                .andExpect(jsonPath("$.name").value("Visibility"))
+                .andExpect(jsonPath("$.surname").value("Test"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                // Hidden fields
+                .andExpect(jsonPath("$.roles").doesNotExist());
+    }
+
+    @Test
+    void developerView_shouldSeeAllFields() throws Exception {
+        User testUser = userRepository.save(User.builder()
+                .username("testvisibility")
+                .email("visibility@example.com")
+                .taxCode("VISTES88A01H501U")
+                .name("Visibility")
+                .surname("Test")
+                .status(UserStatus.ACTIVE)
+                .roles(Set.of(Role.OPERATOR))
+                .build());
+
+        mockMvc.perform(get("/v1/users/" + testUser.getId())
+                        .with(roleJwt("DEVELOPER")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.username").value("testvisibility"))
+                .andExpect(jsonPath("$.email").value("visibility@example.com"))
+                .andExpect(jsonPath("$.roles").exists())
+                .andExpect(jsonPath("$.roles[0]").value("OPERATOR"));
     }
 }

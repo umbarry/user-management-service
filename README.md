@@ -7,6 +7,7 @@ Enterprise-grade backend service for managing users and their roles within the U
 *   **User Management**: CRUD operations for users.
 *   **Keycloak Integration**: Automatic user provisioning in Keycloak for authentication.
 *   **RBAC Authorization**: Fine-grained access control using roles retrieved from the application database.
+*   **Data Visibility (JsonView)**: Selective field visibility based on user roles (Reporter, Operator, Developer).
 *   **Event-Driven Architecture**: Asynchronous welcome email notification using RabbitMQ.
 *   **Idempotent Processing**: Ensures emails are sent exactly once using a dedicated Notifications table.
 *   **Database Migrations**: Managed via Flyway.
@@ -85,13 +86,28 @@ curl --location 'http://localhost:8081/realms/umbarry/protocol/openid-connect/to
 ### Roles and Permissions
 Authorization is managed by the application database. The following roles are supported:
 
-| Role | Permissions |
-| :--- | :--- |
-| **OWNER** | Full access: Create, Read, Update, Delete users. |
-| **MAINTAINER** | Can update users and change user status. Cannot create or delete. |
-| **OPERATOR** | Read-only access to user lists and details. |
-| **REPORTER** | Read-only access to user lists and details. |
-| **DEVELOPER** | Authenticated access only (no specific permissions assigned yet). |
+| Role | Permissions | Data Visibility (JsonView)                                                                                           |
+| :--- | :--- |:---------------------------------------------------------------------------------------------------------------------|
+| **OWNER** | Full access: Create, Read, Update, Delete users. | Full access to all fields (Developer View).                                                                          |
+| **MAINTAINER** | Can update users and change user status. | Full access to all fields.                                                                                           |
+| **DEVELOPER** | Authenticated access. | Full access to all fields.                                                                                           |
+| **OPERATOR** | Read-only access to user lists and details. | Can see all fields **except roles**.                                                                                 |
+| **REPORTER** | Read-only access to user lists and details. | Minimum visibility: Can see ID, Username, Status, and Timestamps. **Hidden**: Roles, Tax Code, Name, Surname, Email. |
+
+### Data Visibility Matrix
+
+| Field | Reporter | Operator | Developer/Maintainer/Owner |
+| :--- | :---: | :---: |:--------------------------:|
+| `id` | ✅ | ✅ |             ✅              |
+| `username` | ✅ | ✅ |             ✅              |
+| `status` | ✅ | ✅ |             ✅              |
+| `createdAt` | ✅ | ✅ |             ✅              |
+| `updatedAt` | ✅ | ✅ |             ✅              |
+| `email` | ❌ | ✅ |             ✅              |
+| `taxCode` | ❌ | ✅ |             ✅              |
+| `name` | ❌ | ✅ |             ✅              |
+| `surname` | ❌ | ✅ |             ✅              |
+| `roles` | ❌ | ❌ |             ✅              |
 
 ## API Documentation
 

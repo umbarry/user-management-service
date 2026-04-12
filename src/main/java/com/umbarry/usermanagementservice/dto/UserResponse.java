@@ -1,5 +1,6 @@
 package com.umbarry.usermanagementservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import com.umbarry.usermanagementservice.enumeration.Role;
 import com.umbarry.usermanagementservice.model.User;
 import com.umbarry.usermanagementservice.enumeration.UserStatus;
@@ -16,15 +17,34 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserResponse {
+    @JsonView(Views.Reporter.class)
     private Long id;
+
+    @JsonView(Views.Reporter.class)
     private String username;
+
+    @JsonView(Views.Operator.class)
     private String email;
+
+    @JsonView(Views.Operator.class)
     private String taxCode;
+
+    @JsonView(Views.Operator.class)
     private String name;
+
+    @JsonView(Views.Operator.class)
     private String surname;
+
+    @JsonView(Views.Reporter.class)
     private UserStatus status;
+
+    @JsonView(Views.Developer.class)
     private Set<Role> roles;
+
+    @JsonView(Views.Reporter.class)
     private ZonedDateTime createdAt;
+
+    @JsonView(Views.Reporter.class)
     private ZonedDateTime updatedAt;
 
     public static UserResponse fromUser(User user) {

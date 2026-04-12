@@ -49,7 +49,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserRequest"
+              $ref: "#/components/schemas/UserRequest_Developer"
         required: true
       responses:
         "200":
@@ -57,7 +57,7 @@ paths:
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/UserResponse"
+                $ref: "#/components/schemas/UserResponse_Developer"
     delete:
       tags:
         - user-controller
@@ -107,6 +107,27 @@ paths:
       responses:
         "200":
           description: OK
+          headers:
+            X-Page-Number:
+              description: Current page number
+              style: simple
+              schema:
+                type: integer
+            X-Total-Count:
+              description: Total number of elements
+              style: simple
+              schema:
+                type: integer
+            X-Total-Pages:
+              description: Total number of pages
+              style: simple
+              schema:
+                type: integer
+            X-Page-Size:
+              description: Page size
+              style: simple
+              schema:
+                type: integer
           content:
             '*/*':
               schema:
@@ -121,18 +142,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserRequest"
+              $ref: "#/components/schemas/UserRequest_Developer"
         required: true
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           content:
             '*/*':
               schema:
-                $ref: "#/components/schemas/UserResponse"
+                $ref: "#/components/schemas/UserResponse_Developer"
 components:
   schemas:
-    UserRequest:
+    UserRequest_Developer:
       type: object
       properties:
         username:
@@ -178,7 +199,7 @@ components:
         - surname
         - taxCode
         - username
-    UserResponse:
+    UserResponse_Developer:
       type: object
       properties:
         id:
@@ -244,6 +265,45 @@ components:
           type: array
           items:
             type: string
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        email:
+          type: string
+        taxCode:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+            - DELETED
+        roles:
+          type: array
+          items:
+            type: string
+            enum:
+              - OWNER
+              - OPERATOR
+              - MAINTAINER
+              - DEVELOPER
+              - REPORTER
+          uniqueItems: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
   securitySchemes:
     bearer-jwt:
       type: http
