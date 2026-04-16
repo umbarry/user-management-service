@@ -67,7 +67,6 @@ An initial administrator user is automatically created in both the database (via
 2.  The service automatically creates the user in **Keycloak** (using their email as username).
 3.  A random 8-character temporary password is generated.
 4.  The user receives an email containing his password.
-5.  On first login, the user will be prompted to change their temporary password.
 
 ### Email Testing
 
