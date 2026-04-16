@@ -9,9 +9,12 @@ Enterprise-grade backend service for managing users and their roles within the U
 *   **RBAC Authorization**: Fine-grained access control using roles retrieved from the application database.
 *   **Data Visibility (JsonView)**: Selective field visibility based on user roles (Reporter, Operator, Developer).
 *   **Event-Driven Architecture**: Asynchronous welcome email notification using RabbitMQ.
-*   **Idempotent Processing**: Ensures emails are sent exactly once using a dedicated Notifications table.
 *   **Database Migrations**: Managed via Flyway.
 *   **Pagination**: RESTful pagination using custom HTTP headers (`X-Total-Count`, etc.).
+
+## Architecture
+
+For a detailed explanation of the architectural choices, trade-offs, and technology stack, please refer to the [Architecture Document](ARCHITECTURE.md).
 
 ## Technologies Used
 
@@ -89,8 +92,8 @@ Authorization is managed by the application database. The following roles are su
 | Role | Permissions | Data Visibility (JsonView)                                                                                           |
 | :--- | :--- |:---------------------------------------------------------------------------------------------------------------------|
 | **OWNER** | Full access: Create, Read, Update, Delete users. | Full access to all fields (Developer View).                                                                          |
-| **MAINTAINER** | Can update users and change user status. | Full access to all fields.                                                                                           |
 | **DEVELOPER** | Authenticated access. | Full access to all fields.                                                                                           |
+| **MAINTAINER** | Can update users and change user status. | Full access to all fields.                                                                                           |
 | **OPERATOR** | Read-only access to user lists and details. | Can see all fields **except roles**.                                                                                 |
 | **REPORTER** | Read-only access to user lists and details. | Minimum visibility: Can see ID, Username, Status, and Timestamps. **Hidden**: Roles, Tax Code, Name, Surname, Email. |
 
